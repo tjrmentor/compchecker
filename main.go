@@ -87,10 +87,6 @@ func deserializeToCompositions(unstructuredComps unstructured.UnstructuredList) 
 	return
 }
 
-func checkCompositions(compList crossplanev1.CompositionList) crossplanev1.CompositionList {
-	return crossplanev1.CompositionList{}
-}
-
 func report(comps crossplanev1.CompositionList) {
 	for _, comp := range comps.Items {
 		fmt.Println(comp.Name)
