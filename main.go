@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"path/filepath"
 
@@ -33,7 +32,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	report(comps)
+	// compsJSON, err := json.MarshalIndent(comps, "", "\t")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// os.WriteFile("comps.json", compsJSON, 0444)
+
+	resourcesModeReports, pipelineModeReports := auditCompositions(comps)
+
+	err = report(*resourcesModeReports, *pipelineModeReports)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // createClient creates a dynamic client using the kubeconfig found at ~/.kube/config,
@@ -87,9 +99,37 @@ func deserializeToCompositions(unstructuredComps unstructured.UnstructuredList) 
 	return
 }
 
-func report(comps crossplanev1.CompositionList) {
+func auditCompositions(comps crossplanev1.CompositionList) (
+	resourcesModeReports *[]ResourcesModeCompositionReport,
+	pipelineModeReports *[]PipelineModeCompositionReport) {
+	resourcesModeReports = new([]ResourcesModeCompositionReport)
+	pipelineModeReports = new([]PipelineModeCompositionReport)
 	for _, comp := range comps.Items {
-		fmt.Println(comp.Name)
+		switch getCompositionMode(comp) {
+		case "Pipeline":
+			// auditPipelineComposition(pipelineModeReports, comp)
+		case "Resources":
+			auditResourcesComposition(resourcesModeReports, comp)
+		}
 	}
-	fmt.Println(len(comps.Items))
+	return
+}
+
+func getCompositionMode(comp crossplanev1.Composition) crossplanev1.CompositionMode {
+	return *comp.Spec.Mode
+}
+
+// creates a function checking whether a Patch maps a given field path to a Composite
+func isMatchingToCompositeFieldPathPatchFactory(fromFieldPath string) func(crossplanev1.Patch) bool {
+	return func(p crossplanev1.Patch) bool {
+		return p.Type == ToCompositeFieldPath &&
+			*p.FromFieldPath == fromFieldPath
+	}
+}
+
+func isMatchingPatchSetPatchFactory(name string) func(crossplanev1.Patch) bool {
+	return func(p crossplanev1.Patch) bool {
+		return p.Type == PatchSet &&
+			*p.PatchSetName == name
+	}
 }
